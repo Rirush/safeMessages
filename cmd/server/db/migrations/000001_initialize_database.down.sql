@@ -1,0 +1,15 @@
+DROP TABLE messages;
+DROP TABLE conversation_members;
+DROP INDEX conversation_token_index;
+DROP TABLE conversation_tokens;
+DROP TABLE conversation_keys;
+DROP TABLE linked_devices;
+DROP TABLE key_changes;
+DROP INDEX conversation_address_index;
+DROP TABLE conversations;
+DROP INDEX identity_address_index;
+DROP TABLE identities;
+DROP INDEX devices_address_index;
+DROP TABLE devices;
+DROP INDEX entities_address_index;
+DROP TABLE entities;
