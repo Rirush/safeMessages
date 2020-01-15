@@ -8,5 +8,8 @@ type Configuration struct {
 		Certificate string
 		Key         string
 	}
+	Connection struct {
+		BindAddress string
+	}
 	Debug bool
 }

@@ -5,17 +5,18 @@ import (
 	"time"
 )
 
-type Entities struct {
+type Entity struct {
 	Address uuid.UUID `dbq:"address"`
 	Type    string    `dbq:"type"`
 }
 
-type Devices struct {
+type Device struct {
 	Address            uuid.UUID `dbq:"address"`
 	Name               string    `dbq:"name"`
 	Description        string    `dbq:"description"`
 	PublicSignatureKey []byte    `dbq:"public_signature_key"`
 	PublicExchangeKey  []byte    `dbq:"public_exchange_key"`
+	DiscoverKey        []byte    `dbq:"discover_key"`
 	IsActive           bool      `dbq:"is_active"`
 	IsDiscoverable     bool      `dbq:"is_discoverable"`
 }
@@ -30,16 +31,26 @@ type Identity struct {
 	PublicExchangeKey   []byte    `dbq:"public_exchange_key"`
 	PrivateExchangeKey  []byte    `dbq:"private_exchange_key"`
 	VerificationHash    []byte    `dbq:"verification_hash"`
+	DiscoverKey         []byte    `dbq:"discover_key"`
 	IsDiscoverable      bool      `dbq:"is_discoverable"`
 }
 
 type Conversation struct {
 	Address     uuid.UUID `dbq:"address"`
+	Creator     uuid.UUID `dbq:"creator"`
 	Name        string    `dbq:"name"`
+	Description string    `dbq:"description"`
 	IsPrivate   bool      `dbq:"is_private"`
 	IsDirect    bool      `dbq:"is_direct"`
 	IsEncrypted bool      `dbq:"is_encrypted"`
 	IsStorable  bool      `dbq:"is_storable"`
+}
+
+type PendingConversationMember struct {
+	RequestID    uint64    `dbq:"request_id"`
+	Conversation uuid.UUID `dbq:"conversation"`
+	Member       uuid.UUID `dbq:"member"`
+	AddedAt      time.Time `dbq:"added_at"`
 }
 
 type KeyChange struct {
