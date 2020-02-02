@@ -12,7 +12,7 @@ type MessageHeader struct {
 	Signature   []byte   `json:"sig,omitempty" msg:"sig"`
 	Source      [16]byte `json:"src,omitempty" msg:"src"`
 	Destination [16]byte `json:"dst,omitempty" msg:"dst"`
-	Size        int   `json:"size,omitempty" msg:"size"`
+	Size        int      `json:"size,omitempty" msg:"size"`
 }
 
 // Message type constants
@@ -35,6 +35,8 @@ const (
 	TypeReceiveMessages     = "receive_messages"
 	TypeSendMessage         = "send_message"
 )
+
+type EmptyReply struct{}
 
 // ForwardRawMessage asks server to send an unencrypted message. Body of ForwardMessage may contain any data.
 // The server will not decode message body and will forward it in untouched form. Server will not raise an error
@@ -240,6 +242,9 @@ const (
 	ErrAuthorizationRequired
 	ErrDeserializationFailure
 	ErrInternalServerError
+	ErrUnknownType
+	ErrInvalidArgument
+	ErrNoPendingChallenge
 )
 
 // All existing error descriptions
@@ -250,7 +255,10 @@ const (
 	ErrInvalidDestinationDesc     = "Invalid destination address"
 	ErrAuthorizationRequiredDesc  = "Authorization required"
 	ErrDeserializationFailureDesc = "Message deserialization failed"
-	ErrInternalServerErrorDesc = "Internal server error has occurred"
+	ErrInternalServerErrorDesc    = "Internal server error has occurred"
+	ErrUnknownTypeDesc            = "Unknown message type"
+	ErrInvalidArgumentDesc        = "Invalid argument"
+	ErrNoPendingChallengeDesc     = "No challenge was created for current session"
 )
 
 // Error returns error that was raised by the server
@@ -270,6 +278,6 @@ func NewError(code uint32, desc string) (MessageHeader, Error) {
 		Signature:   nil,
 		Source:      [16]byte{},
 		Destination: [16]byte{},
-		Size: err.Msgsize(),
+		Size:        err.Msgsize(),
 	}, err
 }

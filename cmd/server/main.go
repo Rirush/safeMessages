@@ -7,6 +7,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/alexflint/go-arg"
 	"github.com/apsdehal/go-logger"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"os"
 )
 
@@ -68,6 +70,11 @@ func RunServer() {
 		defaultLogLevel = logger.DebugLevel
 	}
 	log.SetLogLevel(defaultLogLevel)
+
+	db, err = sqlx.Open("postgres", config.Database.ConnectionString)
+	if err != nil {
+		log.Fatalf("Cannot connect to the database: %v", err)
+	}
 
 	cert, err := tls.LoadX509KeyPair(config.Encryption.Certificate, config.Encryption.Key)
 	if err != nil {

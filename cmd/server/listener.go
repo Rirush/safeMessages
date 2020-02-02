@@ -8,7 +8,9 @@ import (
 	"github.com/apsdehal/go-logger"
 	"github.com/rirush/safeMessages/protocol"
 	"github.com/tinylib/msgp/msgp"
+	"golang.org/x/crypto/ed25519"
 	"net"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -44,37 +46,63 @@ func Listen(listener net.Listener) {
 }
 
 type ClientContext struct {
-	Conn *tls.Conn
-	Encoding string
-	Logger *logger.Logger
+	Conn                   *tls.Conn
+	Encoding               string
+	Logger                 *logger.Logger
+	ActiveDevice           *Device
+	CurrentMessage         []byte
+	CurrentChallenge       []byte
+	CurrentChallengeDevice *Device
 }
 
 func (ctx *ClientContext) startHandler() {
-	ctx.Logger, _ = logger.New("handler-" + strconv.Itoa(lastClient), 1)
+	ctx.Logger, _ = logger.New("handler-"+strconv.Itoa(lastClient), 1)
 	ctx.Logger.SetLogLevel(defaultLogLevel)
 
 	defer func() {
 		if r := recover(); r != nil {
-			ctx.Logger.Criticalf("PANIC! %v", r)
+			header, errBody := protocol.NewError(protocol.ErrInternalServerError, protocol.ErrInternalServerErrorDesc)
+			_ = ctx.Reply(header, errBody)
+			if s, ok := r.(string); ok {
+				if s == "network" || s == "encoding" {
+					ctx.Logger.Debug("Error occurred while decoding body, closing the connection")
+				} else {
+					ctx.Logger.Criticalf("PANIC! %v", r)
+					ctx.Logger.Criticalf("Stacktrace:\n%v", string(debug.Stack()))
+				}
+			} else {
+				ctx.Logger.Criticalf("PANIC! %v", r)
+				ctx.Logger.Criticalf("Stacktrace:\n%v", string(debug.Stack()))
+			}
 		}
+
+		//if ctx.ActiveDevice != nil {
+		//	ctx.ActiveDevice.SetInactive()
+		//}
+
+		ctx.Logger.Debug("Connection is closed")
+		_ = ctx.Conn.Close()
 	}()
 
 outerLoop:
 	for {
+		ctx.CurrentMessage = nil
 		var size uint16
 		err := binary.Read(ctx.Conn, binary.BigEndian, &size)
 		if err != nil {
-			ctx.Logger.Errorf("Error happened: %v", err)
+			ctx.Logger.Warningf("Error occurred while reading from client: %v", err)
 			break
 		}
+		ctx.Logger.Debugf("Waiting for %d bytes", size)
 		// TODO: Size limiting
 		buf := make([]byte, size)
 		read := 0
 		for read != int(size) {
 			_read, err := ctx.Conn.Read(buf[read:])
 			read += _read
+			ctx.Logger.Debugf("Read %d bytes", _read)
 			if err != nil {
-				ctx.Logger.Errorf("Error occurred while reading from client:", err)
+				ctx.Logger.Warningf("Error occurred while reading from client: %v", err)
 				break outerLoop
 			}
 		}
@@ -82,12 +110,14 @@ outerLoop:
 		header := protocol.MessageHeader{}
 		if ctx.Encoding == "" {
 			ctx.Logger.Debug("No encoding set, trying to guess")
-			err = json.Unmarshal(buf, header)
+			err = json.Unmarshal(buf, &header)
 			if err != nil {
 				ctx.Logger.Debug("JSON decode failed, moving on")
+				ctx.Logger.Debugf("JSON error: %v", err)
 				_, err = header.UnmarshalMsg(buf)
 				if err != nil {
 					ctx.Logger.Debug("MessagePack decode failed, closing the connection")
+					ctx.Logger.Debugf("JSON error: %v", err)
 					break
 				} else {
 					ctx.Logger.Debug("Determined that encoding is msgpack")
@@ -137,20 +167,17 @@ outerLoop:
 			break
 		}
 	}
-
-	ctx.Logger.Debug("Connection is closed")
-	_ = ctx.Conn.Close()
 }
 
 func (ctx *ClientContext) sendMsgpackReply(header protocol.MessageHeader, body msgp.MarshalSizer) (err error) {
-	header.Size = body.Msgsize()
-	buf := make([]byte, 2 + header.Msgsize() + body.Msgsize())
+	encodedBody, _ := body.MarshalMsg(nil)
+	header.Size = len(encodedBody)
+	encodedHeader, _ := header.MarshalMsg(nil)
+	var buf []byte
 	stream := bytes.NewBuffer(buf)
-	_ = binary.Write(stream, binary.BigEndian, uint16(header.Msgsize()))
-	encodedBytes, _ := header.MarshalMsg(nil)
-	stream.Write(encodedBytes)
-	encodedBytes, _ = body.MarshalMsg(nil)
-	stream.Write(encodedBytes)
+	_ = binary.Write(stream, binary.BigEndian, uint16(len(encodedHeader)))
+	stream.Write(encodedHeader)
+	stream.Write(encodedBody)
 	_, err = stream.WriteTo(ctx.Conn)
 	return
 }
@@ -159,7 +186,7 @@ func (ctx *ClientContext) sendJSONReply(header protocol.MessageHeader, body inte
 	bodyBytes, _ := json.Marshal(body)
 	header.Size = len(bodyBytes)
 	headerBytes, _ := json.Marshal(header)
-	buf := make([]byte, 2 + len(headerBytes) + len(bodyBytes))
+	var buf []byte
 	stream := bytes.NewBuffer(buf)
 	_ = binary.Write(stream, binary.BigEndian, uint16(len(headerBytes)))
 	stream.Write(headerBytes)
@@ -184,15 +211,65 @@ func (ctx *ClientContext) ReadHeader(buf []byte) (header protocol.MessageHeader,
 	switch ctx.Encoding {
 	case "json":
 		err = json.Unmarshal(buf, &header)
-		return
 	case "msgpack":
 		_, err = header.UnmarshalMsg(buf)
-		return
+	default:
+		panic("Invalid encoding")
+	}
+	return
+}
+
+func (ctx *ClientContext) ReadMessage(header protocol.MessageHeader, message msgp.Unmarshaler) {
+	buf := make([]byte, header.Size)
+	read := 0
+	ctx.Logger.Debugf("Reading %d body bytes", header.Size)
+	for read != header.Size {
+		_read, err := ctx.Conn.Read(buf[read:])
+		read += _read
+		ctx.Logger.Debugf("Read %d bytes", _read)
+		if err != nil {
+			ctx.Logger.Warningf("Error occurred while reading from client: %v", err)
+			panic("network")
+		}
+	}
+	ctx.CurrentMessage = buf
+	switch ctx.Encoding {
+	case "json":
+		err := json.Unmarshal(buf, message)
+		if err != nil {
+			ctx.Logger.Warningf("Error occurred while unmarshalling message: %v", err)
+			panic("encoding")
+		}
+	case "msgpack":
+		_, err := message.UnmarshalMsg(buf)
+		if err != nil {
+			ctx.Logger.Warningf("Error occurred while unmarshalling message: %v", err)
+			panic("encoding")
+		}
 	default:
 		panic("Invalid encoding")
 	}
 }
 
+func (ctx *ClientContext) VerifyMessage(header *protocol.MessageHeader, key ed25519.PublicKey) bool {
+	if ctx.CurrentMessage == nil {
+		panic("Invalid call to verify message: currentMessage is nil")
+	}
+	if header.Signature == nil {
+		return false
+	}
+	return ed25519.Verify(key, ctx.CurrentMessage, header.Signature)
+}
+
 func (ctx *ClientContext) ProcessMessage(header *protocol.MessageHeader) (result msgp.MarshalSizer, clientError *protocol.Error, err error) {
-	panic("unimplemented")
+	f, ok := HandlerMap[header.Type]
+	if !ok {
+		ctx.Logger.Debugf("Client requested unknown method %s", header.Type)
+		_header, _clientError := protocol.NewError(protocol.ErrUnknownType, protocol.ErrUnknownTypeDesc)
+		*header = _header
+		clientError = &_clientError
+		return
+	}
+	result, clientError, err = f(ctx, header)
+	return
 }
