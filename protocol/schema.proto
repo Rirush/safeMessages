@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// Method contains all possible methods for Request message
+enum Method {
+    // Default value is an invalid method
+    UNKNOWN = 0;
+    REGISTER = 1;
+    AUTHORIZATION_START = 2;
+    AUTHORIZE = 3;
+}
+
+// Request is an RPC message that is sent by the client to the server
+message Request {
+    // Method indicates how server should treat request body
+    Method method = 1;
+    // Signature contains Ed25519 body signature
+    bytes signature = 2;
+    // Source address indicates to server, who exactly sends the message (device or a linked identity).
+    // Can be omitted, then the device will be assumed
+    bytes source_address = 3;
+    // Destination address indicates to server, who contents are designated to.
+    // Used in raw forwarding and message sending, otherwise this field is ignored
+    bytes destination_address = 4;
+    // Body contains message itself
+    bytes body = 5;
+}
+
+message RegisterRequest {
+    string name = 1;
+    string description = 2;
+    bytes public_exchange_key = 3;
+    bytes public_signature_key = 4;
+}
+
+message AuthorizationStartRequest {
+    bytes address = 1;
+}
+
+message AuthorizeRequest {
+    bytes challenge = 1;
+}
+
+// Response is an RPC message that is send by the server to the client, indicating the result of a call
+message Response {
+    oneof response {
+        // Result contains call result
+        bytes result = 1;
+        // Error contains an error if it has occurred
+        Error error = 2;
+    }
+}
+
+message RegisterResponse {
+    // Address contains address, that the server has allocated to the user
+    bytes address = 1;
+}
+
+message AuthorizationStartResponse {
+    // Challenge contains challenge bytes, that the client must sign
+    bytes challenge = 1;
+}
+
+message AuthorizeResponse {
+    message LinkedIdentity {
+        bytes address = 1;
+    }
+
+    string name = 1;
+    repeated LinkedIdentity identities = 2;
+}
+
+enum ErrorCode {
+    INVALID_METHOD = 0;
+    INVALID_ADDRESS = 1;
+    INVALID_SIGNATURE = 2;
+    CHALLENGE_MISMATCH = 3;
+}
+
+message Error {
+    ErrorCode code = 1;
+    string description = 2;
+}
