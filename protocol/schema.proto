@@ -7,6 +7,90 @@ enum Method {
     REGISTER = 1;
     AUTHORIZATION_START = 2;
     AUTHORIZE = 3;
+    RESOLVE = 4;
+    CREATE_CONVERSATION = 5;
+    INVITE_TO_CONVERSATION = 6;
+    KICK_FROM_CONVERSATION = 7;
+    BANNED_MEMBERS_REQUEST = 8;
+    UNBAN_MEMBER = 9;
+    // Takes Message object as a body
+    SEND_MESSAGE = 10;
+    // !
+    LIST_PENDING_CONVERSATIONS = 11;
+    ACCEPT_CONVERSATION = 12;
+    REJECT_CONVERSATION = 13;
+    LIST_CONVERSATION_MESSAGES = 14;
+    RECEIVE_MESSAGES = 15;
+    UPLOAD_FILE = 16;
+    DOWNLOAD_FILE = 17;
+    LIST_CONVERSATIONS = 18;
+}
+
+message TextMessage {
+    string text = 1;
+}
+
+message Picture {
+    bytes id = 1;
+    bytes key = 2;
+    uint64 size = 3;
+}
+
+message Video {
+    bytes id = 1;
+    bytes key = 2;
+    uint64 size = 3;
+}
+
+message Animation {
+    bytes id = 1;
+    bytes key = 2;
+    uint64 size = 3;
+}
+
+message MediaContent {
+    oneof content {
+        Picture pic = 1;
+        Video vid = 2;
+        Animation anim = 3;
+    }
+    string caption = 4;
+}
+
+message MediaMessage {
+    repeated MediaContent contents = 1;
+    string caption = 2;
+}
+
+message StickerMessage {
+    bytes id = 1;
+    bytes key = 2;
+}
+
+message DocumentMessage {
+    bytes id = 1;
+    bytes key = 2;
+    string caption = 3;
+    string filename = 4;
+}
+
+message ForwardedMessage {
+    bytes source = 1;
+    bytes message = 2;
+    bytes original_signature = 3;
+}
+
+message Message {
+    oneof contents {
+        TextMessage text_message = 1;
+        MediaMessage media_message = 2;
+        StickerMessage sticker_message = 3;
+        ForwardedMessage forwarded_message = 4;
+        DocumentMessage document_message = 7;
+    }
+    bool is_reply = 5;
+    // Local message ID
+    uint64 reply_to = 6;
 }
 
 // Request is an RPC message that is sent by the client to the server
@@ -26,19 +110,122 @@ message Request {
 }
 
 message RegisterRequest {
+    // Human-readable device name, visible to others in resolution scope
     string name = 1;
+    // Human-readable additional information, visible to others in resolution scope
     string description = 2;
+    // Key, that is used for X25519 exchange
     bytes public_exchange_key = 3;
+    // Key, that is used for Ed25519 signatures
     bytes public_signature_key = 4;
 }
 
 message AuthorizationStartRequest {
+    // Device address
     bytes address = 1;
 }
 
 message AuthorizeRequest {
+    // Challenge bytes provided by the server
     bytes challenge = 1;
 }
+
+message ResolveRequest {
+    oneof identifier {
+        // Entity address
+        bytes address = 1;
+        // Identity username
+        string username = 3;
+    }
+    // Discovery PSK, optional
+    bytes discover_key = 2;
+    // Conversation token, optional
+    bytes conversation_token = 4;
+}
+
+message ConversationPolicy {
+    // Cannot be discovered by any means other than direct invites
+    bool private = 1;
+    // Between two members
+    bool direct = 2;
+    // All messages are E2E encrypted
+    bool encrypted = 3;
+    // Store history on the server
+    bool retain_history = 4;
+}
+
+message CreateConversationRequest {
+    string name = 1;
+    string description = 2;
+    repeated bytes members = 3;
+    ConversationPolicy policy = 4;
+    // Shared key is an encrypted conversation key, securely selected by the creator.
+    // len(shared_key) = len(members), shared_key[i] belongs to members[i] and is encrypted using X25519(creator_key, member_key)
+    repeated bytes shared_key = 5;
+}
+
+message InviteToConversationRequest {
+    // Conversation address
+    bytes address = 1;
+    // Target member address
+    bytes member_address = 2;
+    // Encrypted using X25519(inviter_key, member_key), only if chat is encrypted
+    bytes shared_key = 3;
+}
+
+message KickFromConversationRequest {
+    // Conversation address
+    bytes address = 1;
+    // Target member address. Banned members cannot rejoin through conversation key
+    bytes member_address = 2;
+    // Optional kick reason
+    string reason = 3;
+    // If ban is set, client will not be able to rejoin though conversation key
+    bool ban = 4;
+}
+
+message BannedMembersRequest {
+    // Conversation address
+    bytes address = 1;
+}
+
+message UnbanMemberRequest {
+    // Conversation address
+    bytes address = 1;
+    // Banned member address
+    bytes member_address = 2;
+}
+
+message PendingConversationsRequest {}
+
+message AcceptConversationRequest {
+    bytes address = 1;
+}
+
+message RejectConversationRequest {
+    bytes address = 1;
+}
+
+message ListConversationMessagesRequest {
+    bytes address = 1;
+    int64 limit = 2;
+    int64 offset = 3;
+}
+
+message ReceiveMessagesRequest {}
+
+message UploadFileRequest {
+    string type = 1;
+    int64 size = 2;
+    string name = 3;
+}
+
+message DownloadFileRequest {
+    bytes id = 1;
+    bytes key = 2;
+}
+
+message ListConversationsRequest {}
 
 // Response is an RPC message that is send by the server to the client, indicating the result of a call
 message Response {
@@ -47,6 +234,8 @@ message Response {
         bytes result = 1;
         // Error contains an error if it has occurred
         Error error = 2;
+        // Confirmation is set to true if call result doesn't have a body
+        bool confirmation = 3;
     }
 }
 
@@ -62,11 +251,107 @@ message AuthorizationStartResponse {
 
 message AuthorizeResponse {
     message LinkedIdentity {
+        // Identity address
         bytes address = 1;
     }
 
+    // Device name
     string name = 1;
+    // Identities linked to current device
     repeated LinkedIdentity identities = 2;
+}
+
+message Device {
+    bytes address = 1;
+    string name = 2;
+    string description = 3;
+    bytes exchange_key = 4;
+    bytes signature_key = 5;
+}
+
+message Identity {
+    bytes address = 1;
+    string name = 2;
+    string description = 3;
+    string username = 4;
+    bytes exchange_key = 5;
+    bytes signature_key = 6;
+}
+
+message Conversation {
+    bytes address = 1;
+    bytes creator_address = 2;
+    string name = 3;
+    string description = 4;
+    repeated bytes members = 5;
+    bool joined = 6;
+}
+
+message ResolveResponse {
+    oneof entity {
+        Device device = 1;
+        Identity identity = 2;
+        Conversation conversation = 3;
+    }
+}
+
+message CreateConversationResponse {
+    // Conversation address
+    bytes address = 1;
+    // Addresses of members that were invited
+    repeated bytes members = 2;
+}
+
+message BannedMember {
+    oneof banned_entity {
+        Device banned_device = 1;
+        Identity banned_identity = 2;
+    }
+
+    oneof banned_by {
+        Device banned_by_device = 3;
+        Identity banned_by_identity = 4;
+    }
+
+    string reason = 5;
+}
+
+message BannedMembersResponse {
+    repeated BannedMember banned_members = 1;
+}
+
+message PendingConversationsResponse {
+    repeated Conversation conversations = 1;
+}
+
+message EnclosedMessage {
+    int64 id = 1;
+    bytes sender = 2;
+    bytes signature = 3;
+    bytes message = 4;
+    string sent_at = 5;
+}
+
+message ListConversationMessagesResponse {
+    repeated EnclosedMessage messages = 1;
+}
+
+message DownloadFileResponse {
+    string name = 1;
+    int64 size = 2;
+}
+
+message JoinedConversation {
+    bytes address = 1;
+    bytes creator_address = 2;
+    string name = 3;
+    string description = 4;
+    repeated bytes members = 5;
+    bytes key = 6;
+}
+
+message ListConversationsResponse {
+    repeated JoinedConversation conversations = 1;
 }
 
 enum ErrorCode {

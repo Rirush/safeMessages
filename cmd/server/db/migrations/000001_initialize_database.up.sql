@@ -66,7 +66,16 @@ CREATE TABLE IF NOT EXISTS pending_conversation_members (
     request_id SERIAL8 PRIMARY KEY,
     conversation UUID REFERENCES conversations,
     member UUID REFERENCES entities,
+    pending_key BYTEA,
     added_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS banned_conversation_members (
+    ban_id SERIAL8 PRIMARY KEY,
+    conversation UUID REFERENCES conversations,
+    member UUID REFERENCES entities,
+    banned_by UUID REFERENCES entities,
+    reason TEXT
 );
 
 -- Create key change table

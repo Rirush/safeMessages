@@ -108,6 +108,7 @@ type PendingConversationMember struct {
 	RequestID    uint64    `db:"request_id"`
 	Conversation uuid.UUID `db:"conversation"`
 	Member       uuid.UUID `db:"member"`
+	PendingKey   []byte    `db:"pending_key"`
 	AddedAt      time.Time `db:"added_at"`
 }
 
