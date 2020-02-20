@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "protocol";
+
 // Method contains all possible methods for Request message
 enum Method {
     // Default value is an invalid method

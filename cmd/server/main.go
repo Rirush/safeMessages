@@ -7,6 +7,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/alexflint/go-arg"
 	"github.com/apsdehal/go-logger"
+	"github.com/getsentry/sentry-go"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"os"
@@ -70,6 +71,13 @@ func RunServer() {
 		defaultLogLevel = logger.DebugLevel
 	}
 	log.SetLogLevel(defaultLogLevel)
+
+	err = sentry.Init(sentry.ClientOptions{
+		Dsn: config.Sentry.DSN,
+	})
+	if err != nil {
+		log.Warningf("Failed to connect to Sentry: %v", err)
+	}
 
 	db, err = sqlx.Open("postgres", config.Database.ConnectionString)
 	if err != nil {

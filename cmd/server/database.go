@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/rocketlaunchr/dbq"
@@ -24,6 +25,7 @@ func AllocateUUID(typ string) Entity {
 	}
 	_, err := db.Exec("INSERT INTO entities (address, type) VALUES ($1, $2)", ent.Address, ent.Type)
 	if err != nil {
+		sentry.CaptureException(err)
 		panic("Cannot insert entity into database: " + err.Error())
 	}
 	return ent
@@ -44,6 +46,7 @@ func (dev *Device) Insert() {
 	_, err := db.Exec("INSERT INTO devices (address, name, description, public_signature_key, public_exchange_key) VALUES ($1, $2, $3, $4, $5)",
 		dev.Address, dev.Name, dev.Description, dev.PublicSignatureKey, dev.PublicExchangeKey)
 	if err != nil {
+		sentry.CaptureException(err)
 		panic("Cannot insert device into database: " + err.Error())
 	}
 	return

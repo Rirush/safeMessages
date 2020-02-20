@@ -11,5 +11,8 @@ type Configuration struct {
 	Connection struct {
 		BindAddress string
 	}
+	Sentry struct {
+		DSN string
+	}
 	Debug bool
 }
