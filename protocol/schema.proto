@@ -1,0 +1,15 @@
+syntax = "proto3";
+option go_package = "pb";
+
+enum OperationCode {
+  UNKNOWN = 0;
+  REGISTER_DEVICE = 1;
+}
+
+message Message {
+
+}
+
+message Reply {
+
+}
