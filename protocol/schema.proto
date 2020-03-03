@@ -2,14 +2,47 @@ syntax = "proto3";
 option go_package = "pb";
 
 enum OperationCode {
-  UNKNOWN = 0;
+  INFORMATION = 0;
+
   REGISTER_DEVICE = 1;
+  GENERATE_CHALLENGE = 2;
+  AUTHORIZE = 3;
+
+  REGISTER_IDENTITY = 4;
+  LINK_IDENTITY = 5;
+  UNLINK_IDENTITY = 6;
+  LIST_LINKED_DEVICES = 7;
+
+  UPDATE_DEVICE = 8;
+  UPDATE_IDENTITY = 9;
+  UPDATE_KEYS = 10;
+
+  QUERY_IDENTITIES = 11;
+  QUERY_CHATS = 12;
+
+  CREATE_CHAT = 13;
+  JOIN_CHAT = 14;
+  PENDING_CHATS = 15;
+  CHAT_MANAGEMENT = 16;
+
+  SEND_MESSAGE = 17;
+  QUERY_MESSAGES = 18;
+  EDIT_MESSAGE = 19;
+
+  LISTEN_FOR_EVENTS = 20;
 }
 
 message Message {
-
+  bytes signature = 1;
+  bytes source = 2;
+  bytes destination = 3;
+  bytes data = 4;
 }
 
 message Reply {
+
+}
+
+message Event {
 
 }

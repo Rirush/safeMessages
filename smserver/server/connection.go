@@ -48,7 +48,7 @@ func startConnectionHandler(conn *tls.Conn) {
 		}
 
 		// Handler and replier logic:
-		response, err := event.Dispatch(&session, &msg)
+		response, err := event.HandleMessage(&session, &msg)
 		if err != nil {
 			log.Printf("Message processing failed: %e\n", err)
 			return

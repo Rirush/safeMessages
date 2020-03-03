@@ -5,7 +5,7 @@ import (
 	"github.com/Rirush/safeMessages/smserver/server"
 )
 
-func Dispatch(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func HandleMessage(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
 
 	return pb.Reply{}, nil
 }
