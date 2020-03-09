@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/Rirush/safeMessages/protocol"
 	"github.com/Rirush/safeMessages/protocol/pb"
 	"github.com/Rirush/safeMessages/smserver/event"
 	"github.com/Rirush/safeMessages/smserver/server"
@@ -31,5 +32,5 @@ func init() {
 }
 
 func Information(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
-
+	return protocol.NewReply(&pb.InformationReply{Version:"v0.1.0"}), nil
 }

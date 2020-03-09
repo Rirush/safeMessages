@@ -12,37 +12,499 @@ enum OperationCode {
   LINK_IDENTITY = 5;
   UNLINK_IDENTITY = 6;
   LIST_LINKED_DEVICES = 7;
+  LIST_LINKED_IDENTITIES = 8;
 
-  UPDATE_DEVICE = 8;
-  UPDATE_IDENTITY = 9;
-  UPDATE_KEYS = 10;
+  UPDATE_DEVICE = 9;
+  UPDATE_IDENTITY = 10;
+  UPDATE_KEYS = 11;
 
-  QUERY_IDENTITIES = 11;
-  QUERY_CHATS = 12;
+  QUERY_IDENTITIES = 12;
+  QUERY_CHATS = 13;
 
-  CREATE_CHAT = 13;
-  JOIN_CHAT = 14;
-  PENDING_CHATS = 15;
-  CHAT_MANAGEMENT = 16;
+  CREATE_CHAT = 14;
+  JOIN_CHAT = 15;
+  PENDING_CHATS = 16;
+  CHAT_MANAGEMENT = 17;
 
-  SEND_MESSAGE = 17;
-  QUERY_MESSAGES = 18;
-  EDIT_MESSAGE = 19;
+  SEND_MESSAGE = 18;
+  QUERY_MESSAGES = 19;
+  EDIT_MESSAGE = 20;
 
-  LISTEN_FOR_EVENTS = 20;
+  LISTEN_FOR_EVENTS = 21;
 }
 
-message Message {
+message Packet {
   bytes signature = 1;
+  // Source indicates current entity (device or identity)
   bytes source = 2;
   bytes destination = 3;
   bytes data = 4;
 }
 
 message Reply {
+  oneof status {
+    bytes result = 1;
+    Error error = 2;
+  }
+}
+
+message InformationReply {
+  string version = 1;
+}
+
+// RegisterDevice asks server to allocate new address and create new entry in device table
+
+message RegisterDevice {
+  string name = 1;
+  string description = 2;
+  bytes signature_key = 3;
+}
+
+message RegisterDeviceReply {
+  bytes address = 1;
+}
+
+// GenerateChallenge asks server to generate challenge data for client to sign
+
+message GenerateChallenge {
+  bytes address = 1;
+}
+
+message GenerateChallengeReply {
+  bytes challenge = 1;
+}
+
+// Authorize confirms device identity by verifying challenge bytes signature
+
+message Authorize {
+  bytes challenge = 1;
+}
+
+message AuthorizeReply {
+  string name = 1;
+}
+
+// RegisterIdentity asks server to allocate new address and create new entry in identity table.
+// Registered identity is automatically linked to the device that created it
+
+message RegisterIdentity {
+  string name = 1;
+  string username = 2;
+  string bio = 3;
+
+  bytes signature_key = 4;
+  bytes encrypted_signature_key = 5;
+  bytes exchange_key = 6;
+  bytes encrypted_exchange_key = 7;
+
+  // SHA256(PBKDF2(username, password, 1000000))
+  bytes verification_hash = 8;
+}
+
+message RegisterIdentityReply {
+  bytes address = 1;
+}
+
+// LinkIdentity asks server to link identity to currently authorized device.
+// If the identity was linked, server will return current identity keys
+
+message LinkIdentity {
+  string username = 1;
+  bytes verification_hash = 2;
+}
+
+message LinkIdentityReply {
+  bytes address = 1;
+  bytes encrypted_signature_key = 2;
+  bytes encrypted_exchange_key = 3;
+}
+
+// UnlinkIdentity asks server to unlink current identity from specified device.
+// Beware that unlinked device may still have identity keys stored, which allow to relink the identity back.
+// Required to be signed
+
+message UnlinkIdentity {
+  bytes identity_address = 1;
+  bytes device_address = 2;
+}
+
+// ListLinkedDevices asks server to return list of all devices that are linked to the current identity
+
+message LinkedDevice {
+  bytes address = 1;
+  string name = 2;
+  string description = 3;
+  string linked_at = 4;
+}
+
+message ListLinkedDevicesReply {
+  repeated LinkedDevice device = 1;
+}
+
+// ListLinkedIdentities asks server to return list of all devices that are linked to the current device
+
+message LinkedIdentity {
+  bytes address = 1;
+  string name = 2;
+  string username = 3;
+}
+
+message ListLinkedIdentitiesReply {
+  repeated LinkedIdentity identity = 1;
+}
+
+// UpdateDevice asks server to update device record
+
+message UpdateDevice {
+  string name = 1;
+  string description = 2;
+}
+
+message UpdateDeviceReply {
+  string name = 1;
+  string description = 2;
+}
+
+// UpdateIdentity asks server to update identity record
+
+message UpdateIdentity {
+  string name = 1;
+  string bio = 2;
+}
+
+message UpdateIdentityReply {
+  string name = 1;
+  string bio = 2;
+}
+
+// UpdateKeys asks server to change keys
+
+message UpdateDeviceKeysRequest {
+  bytes signature_key = 1;
+}
+
+message UpdateIdentityKeysRequest {
+  bytes signature_key = 1;
+  bytes encrypted_signature_key = 2;
+  bytes exchange_key = 3;
+  bytes encrypted_exchange_key = 4;
+}
+
+// UpdateIdentityMasterRequest will forcefully unlink all other devices if no encrypted key specified.
+// New key must be encrypted with the old key in order for other devices to decrypt it
+message UpdateIdentityMasterRequest {
+  string username = 1;
+  bytes verification_hash = 2;
+  bytes encrypted_key = 3;
+}
+
+message UpdateKeys {
+  oneof request {
+    UpdateDeviceKeysRequest device_keys = 1;
+    UpdateIdentityKeysRequest identity_keys = 2;
+    UpdateIdentityMasterRequest master_key = 3;
+  }
+}
+
+// QueryIdentities asks server to find all available identities under specific query
+
+message QueryIdentities {
+  oneof query {
+    bytes address = 1;
+    string username = 2;
+    string name = 3;
+  }
+}
+
+message Identity {
+  bytes address = 1;
+  string username = 2;
+  string bio = 3;
+  bytes signature_key = 4;
+  bytes exchange_key = 5;
+
+  // If current identity is equals to the requested, these fields will be filled:
+  bytes encrypted_signature_key = 6;
+  bytes encrypted_exchange_key = 7;
+  // Only set if client has not yet received new key after update
+  bytes encrypted_master_key = 8;
+}
+
+message QueryIdentitiesReply {
+  repeated Identity identities = 1;
+}
+
+// QueryChats asks server to find all available chats under specific query
+
+message QueryChats {
+  oneof query {
+    bytes address = 1;
+    string title = 2;
+    string discovery_key = 3;
+  }
+}
+
+message Chat {
+  bytes address = 1;
+  string title = 2;
+  string description = 3;
+  // Only set when searching by address:
+  repeated Identity members = 4;
+  string discovery_key = 5;
+  bytes stored_encryption_key = 6;
+}
+
+message QueryChatsReply {
+  repeated Chat chats = 1;
+}
+
+// CreateChat asks server to allocate new address and create new chat in the database
+
+message CreatePrivateChat {
+  bytes recipient = 1;
+}
+
+message SharedKey {
+  bytes recipient = 1;
+  bytes encrypted_key = 2;
+}
+
+message GroupChatMode {
+  bool encrypted = 1;
+  repeated SharedKey keys = 2;
+}
+
+message CreateGroupChat {
+  string title = 1;
+  string description = 2;
+  repeated bytes members = 3;
+  string discovery_key = 4;
+  GroupChatMode mode = 5;
+}
+
+message CreateChat {
+  oneof chat_type {
+    CreatePrivateChat private = 1;
+    CreateGroupChat group = 2;
+  }
+}
+
+message CreateChatReply {
+  bytes address = 1;
+}
+
+// JoinChat asks server to join specified chat by discovery key
+
+message JoinChat {
+  string discovery_key = 1;
+}
+
+message JoinChatReply {
+  string title = 1;
+  bytes address = 2;
+}
+
+// PendingChats retrieves list of pending chats from server and allows to manage them
+
+message PendingChats {
+  message ListPendingChats {
+    uint64 limit = 1;
+    uint64 offset = 2;
+  }
+
+  message AcceptPendingChat {
+    bytes address = 1;
+  }
+
+  message RejectPendingChat {
+    bytes address = 1;
+  }
+
+  oneof action {
+    ListPendingChats pending = 1;
+    AcceptPendingChat accept = 2;
+    RejectPendingChat reject = 3;
+  }
+}
+
+message ListPendingChatsReply {
+  message ListPendingChatsReply {
+    message PendingChat {
+      bytes address = 1;
+      string title = 2;
+      Identity invited_by = 3;
+      string invited_at = 4;
+    }
+    repeated PendingChat pending_chats = 1;
+  }
+
+  message AcceptPendingChatReply {
+    Chat chat = 1;
+  }
+
+  message RejectPendingChatReply {}
+
+  oneof result {
+    ListPendingChatsReply list = 1;
+    AcceptPendingChatReply accept = 2;
+    RejectPendingChatReply reject = 3;
+  }
+}
+
+// ChatManagement allows to change chat information and stored keys
+
+message ChatManagement {
+  // StoreChatKey stores encrypted key for other devices under the same identity
+  message StoreChatKey {
+    bytes encrypted_key = 1;
+  }
+
+  message ListAdministrators {}
+
+  message UpdateChat {
+    string title = 1;
+    string description = 2;
+  }
+
+  message Promote {
+    bytes member = 1;
+    bool transfer_ownership = 2;
+  }
+
+  message Demote {
+    bytes member = 1;
+  }
+
+  message RestrictMember {
+    bytes member = 1;
+    bool mute = 2;
+    bool kick = 3;
+    bool ban = 4;
+    string restrict_until = 5;
+  }
+
+  message InviteMember {
+    bytes identity = 1;
+  }
+
+  // Only owner can do that
+  message DeleteChat {}
+
+  bytes chat = 1;
+  oneof action {
+    StoreChatKey store_key = 2;
+    ListAdministrators list_administrators = 3;
+    UpdateChat update = 4;
+    Promote promote = 5;
+    Demote demote = 6;
+    RestrictMember restrict = 7;
+    InviteMember invite = 8;
+    DeleteChat delete = 9;
+  }
+}
+
+message ChatManagementReply {
+  message StoreEncryptionKeyReply {}
+
+  message ListAdministratorsReply {}
+
+  message UpdateChatReply {}
+
+  message PromoteReply {}
+
+  message DemoteReply {}
+
+  message RestrictMemberReply {}
+
+  message InviteMemberReply {}
+
+  message DeleteChatReply {}
+
+  oneof result {
+    StoreEncryptionKeyReply store = 1;
+    ListAdministratorsReply administrators = 2;
+    UpdateChatReply update = 3;
+    PromoteReply promote = 4;
+    DemoteReply demote = 5;
+    RestrictMemberReply restrict = 6;
+    InviteMemberReply invite = 7;
+    DeleteChatReply delete = 8;
+  }
+}
+
+// SendMessage sends message to the server to be delivered.
+// Contains Message as a body
+
+message Message {
+  message TextMessage {
+    string text = 1;
+  }
+
+  oneof content {
+    TextMessage text = 1;
+  }
+}
+
+message EncapsulatedMessage {
+  bytes sender = 1;
+  bytes receiver = 2;
+  bytes signature = 3;
+  Message message = 4;
+  string sent_at = 5;
+  uint64 seq = 6;
+}
+
+// QueryMessages asks server to return messages that match specific query
+
+message QueryMessages {
+  message Catchup {
+    string last_message_date = 1;
+  }
+
+  oneof query {
+    Catchup catchup = 1;
+  }
+}
+
+message QueryMessagesReply {
+  repeated EncapsulatedMessage messages = 1;
+}
+
+// EditMessage asks server to modify existing message
+
+message EditMessage {
+  bytes chat = 1;
+  uint64 message_id = 2;
+  EncapsulatedMessage message = 3;
+}
+
+// ListenForEvents tells server to stop receiving commands and emit events
+
+enum EventType {
 
 }
 
-message Event {
+message ListenForEvents {
+  repeated EventType event_filter = 1;
+}
 
+enum ErrorCode {
+  NOT_IMPLEMENTED = 0;
+  INVALID_DEVICE = 1;
+  VERIFICATION_FAILED = 2;
+  INVALID_KEY_SIZE = 3;
+  INVALID_VERIFICATION_HASH = 4;
+  INVALID_IDENTITY = 5;
+  INVALID_DATE = 6;
+  PERMISSION_DENIED = 7;
+}
+
+message Error {
+  ErrorCode code = 1;
+  string description = 2;
+}
+
+message Event {
+  EventType type = 1;
+  bytes data = 2;
 }
