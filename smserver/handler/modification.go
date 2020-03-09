@@ -6,14 +6,14 @@ import (
 	"github.com/Rirush/safeMessages/smserver/server"
 )
 
-func UpdateDevice(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func UpdateDevice(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func UpdateIdentity(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func UpdateIdentity(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func UpdateKeys(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func UpdateKeys(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }

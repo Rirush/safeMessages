@@ -12,13 +12,14 @@ import (
 )
 
 type SessionData struct {
-	conn *tls.Conn
+	Conn *tls.Conn
+	Authenticated bool
 	//lastMessage []byte
 }
 
 func startConnectionHandler(conn *tls.Conn) {
 	session := SessionData{
-		conn: conn,
+		Conn: conn,
 	}
 
 	defer func() {
@@ -41,14 +42,14 @@ func startConnectionHandler(conn *tls.Conn) {
 		}
 		// Store message for possible signature verification later
 		//session.lastMessage = buf
-		msg := pb.Message{}
+		msg := pb.Packet{}
 		if err = proto.Unmarshal(buf, &msg); err != nil {
 			log.Printf("Cannot decode message: %e\n", err)
 			return
 		}
 
 		// Handler and replier logic:
-		response, err := event.HandleMessage(&session, &msg)
+		response, err := event.HandlePacket(&session, &msg)
 		if err != nil {
 			log.Printf("Message processing failed: %e\n", err)
 			return

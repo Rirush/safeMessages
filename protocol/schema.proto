@@ -38,7 +38,8 @@ message Packet {
   // Source indicates current entity (device or identity)
   bytes source = 2;
   bytes destination = 3;
-  bytes data = 4;
+  OperationCode code = 4;
+  bytes data = 5;
 }
 
 message Reply {
@@ -364,6 +365,7 @@ message ChatManagement {
   message UpdateChat {
     string title = 1;
     string description = 2;
+    string discovery_key = 3;
   }
 
   message Promote {
@@ -481,7 +483,7 @@ message EditMessage {
 // ListenForEvents tells server to stop receiving commands and emit events
 
 enum EventType {
-
+  MESSAGE = 0;
 }
 
 message ListenForEvents {
@@ -497,6 +499,8 @@ enum ErrorCode {
   INVALID_IDENTITY = 5;
   INVALID_DATE = 6;
   PERMISSION_DENIED = 7;
+  UNAUTHORIZED = 8;
+  UNKNOWN_FUNCTION = 9;
 }
 
 message Error {

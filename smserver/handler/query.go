@@ -6,14 +6,14 @@ import (
 	"github.com/Rirush/safeMessages/smserver/server"
 )
 
-func QueryIdentities(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func QueryIdentities(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func QueryChats(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func QueryChats(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func QueryMessages(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func QueryMessages(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }

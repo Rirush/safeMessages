@@ -6,30 +6,30 @@ import (
 	"github.com/Rirush/safeMessages/smserver/server"
 )
 
-func RegisterDevice(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func RegisterDevice(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func GenerateChallenge(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func GenerateChallenge(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func Authorize(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func Authorize(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func RegisterIdentity(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func RegisterIdentity(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func LinkIdentity(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func LinkIdentity(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func UnlinkIdentity(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func UnlinkIdentity(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func ListLinkedDevices(session *server.SessionData, message *pb.Message) (pb.Reply, error) {
+func ListLinkedDevices(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
