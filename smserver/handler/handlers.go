@@ -4,8 +4,18 @@ import (
 	"github.com/Rirush/safeMessages/protocol"
 	"github.com/Rirush/safeMessages/protocol/pb"
 	"github.com/Rirush/safeMessages/smserver/event"
-	"github.com/Rirush/safeMessages/smserver/server"
+	"github.com/golang/protobuf/proto"
+	"github.com/nats-io/nats.go"
 )
+
+var globalPublisher *nats.Conn
+var connectionAddress string
+
+func ConnectToNats(addr string) (err error) {
+	connectionAddress = addr
+	globalPublisher, err = nats.Connect(addr)
+	return err
+}
 
 func init() {
 	event.Register(pb.OperationCode_INFORMATION, Information, false)
@@ -31,6 +41,10 @@ func init() {
 	event.Register(pb.OperationCode_LISTEN_FOR_EVENTS, ListenForEvents, true)
 }
 
-func Information(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
+func DecodeMessage(message *pb.Packet, result proto.Message) error {
+	return proto.Unmarshal(message.Data, result)
+}
+
+func Information(session *event.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.NewReply(&pb.InformationReply{Version:"v0.1.0"}), nil
 }

@@ -3,17 +3,17 @@ package handler
 import (
 	"github.com/Rirush/safeMessages/protocol"
 	"github.com/Rirush/safeMessages/protocol/pb"
-	"github.com/Rirush/safeMessages/smserver/server"
+	"github.com/Rirush/safeMessages/smserver/event"
 )
 
-func UpdateDevice(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
+func UpdateDevice(session *event.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func UpdateIdentity(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
+func UpdateIdentity(session *event.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }
 
-func UpdateKeys(session *server.SessionData, message *pb.Packet) (pb.Reply, error) {
+func UpdateKeys(session *event.SessionData, message *pb.Packet) (pb.Reply, error) {
 	return protocol.ErrNotImplemented, nil
 }

@@ -11,14 +11,10 @@ import (
 	"log"
 )
 
-type SessionData struct {
-	Conn *tls.Conn
-	Authenticated bool
-	//lastMessage []byte
-}
+
 
 func startConnectionHandler(conn *tls.Conn) {
-	session := SessionData{
+	session := event.SessionData{
 		Conn: conn,
 	}
 

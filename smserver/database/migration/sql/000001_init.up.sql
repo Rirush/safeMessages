@@ -49,5 +49,6 @@ CREATE TABLE messages (
     sender UUID REFERENCES identities,
     signature BYTEA NOT NULL,
     message BYTEA NOT NULL,
-    chat UUID REFERENCES chats
+    chat UUID REFERENCES chats,
+    sent_at TIMESTAMPTZ
 );

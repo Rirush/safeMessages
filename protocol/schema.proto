@@ -451,7 +451,7 @@ message EncapsulatedMessage {
   bytes sender = 1;
   bytes receiver = 2;
   bytes signature = 3;
-  Message message = 4;
+  bytes message = 4;
   string sent_at = 5;
   uint64 seq = 6;
 }
