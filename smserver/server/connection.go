@@ -30,6 +30,7 @@ func startConnectionHandler(conn *tls.Conn) {
 			log.Printf("Error while reading from connection: %e\n", err)
 			return
 		}
+		log.Printf("Preparing to read %d bytes\n", size)
 		buf := make([]byte, size)
 		_, err = io.ReadFull(reader, buf)
 		if err != nil {

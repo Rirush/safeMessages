@@ -239,6 +239,9 @@ func (d *Device) ListLinkedIdentities() ([]*Identity, error) {
 		}
 		addresses = append(addresses, address)
 	}
+	if len(addresses) == 0 {
+		return []*Identity{}, nil
+	}
 	query, args, err := sqlx.In(bulkQueryIdentitiesSql, addresses)
 	if err != nil {
 		return nil, err
