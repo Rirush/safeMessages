@@ -1,0 +1,364 @@
+syntax = "proto3";
+
+option go_package = ".;types";
+
+enum RequestType {
+    UNKNOWN = 0;
+    CHECK_USERNAME = 1;
+    REGISTER = 2;
+    CONNECT = 3;
+    KEY_EXCHANGE = 4;
+    NEW_CONNECTION = 5;
+    CHANNEL_SEND = 6;
+    LINK_CHANNEL = 7;
+    LIST_CONNECTIONS = 8;
+    ESTABLISH_SESSION = 9;
+    PENDING_SESSIONS = 10;
+    ACCEPT_SESSION = 11;
+    CANCEL_SESSION = 12;
+    FINALIZE_SESSION = 13;
+}
+
+enum ErrorCode {
+    UNAUTHORIZED = 0;
+    USERNAME_TAKEN = 1;
+    INVALID_KEY = 2;
+    INVALID_TOKEN = 3;
+    INVALID_ID = 4;
+    EXCHANGE_CANCELLED = 5;
+    NO_SUCH_CHANNEL = 6;
+    NO_SUCH_CONNECTION = 7;
+    NO_SUCH_USER = 8;
+}
+
+message Request {
+    RequestType type = 1;
+    bytes data = 2;
+}
+
+message Response {
+    oneof result {
+        bytes response = 1;
+        Error error = 2;
+    }
+}
+
+message Error {
+    ErrorCode code = 1;
+    string description = 2;
+}
+
+message File {
+    bytes file_id = 1;
+    string type = 2;
+}
+
+message Profile {
+    bytes id = 1;
+    string name = 2;
+    string username = 3;
+    string bio = 4;
+    File profile_picture = 5;
+}
+
+message KeyExchangeData {
+    message SessionKey {
+        bytes id = 1;
+        bytes key = 2;
+    }
+
+    bytes token = 1;
+    repeated SessionKey keys = 2;
+}
+
+message Message {
+    message TextMessage {
+        string text = 1;
+    }
+
+    message FileMessage {
+        repeated bytes file_ids = 1;
+        string text = 2;
+    }
+
+    oneof content {
+        TextMessage text = 1;
+        FileMessage file = 2;
+    }
+}
+
+message EncapsulatedMessage {
+    bytes sender_id = 1;
+    uint64 message_id = 2;
+    uint64 timestamp = 3;
+    bytes data = 4;
+}
+
+
+message CheckUsernameRequest {
+    string username = 1;
+}
+
+message CheckUsernameResponse {
+    bool available = 2;
+}
+
+
+message RegisterRequest {
+    string username = 1;
+    bytes key = 2;
+}
+
+message RegisterResponse {
+    bytes id = 1;
+    bytes token = 2;
+}
+
+
+message ConnectRequest {
+    enum Mode {
+        COMMAND = 0;
+        EVENT = 1;
+    }
+
+    bytes id = 1;
+    bytes token = 2;
+    Mode mode = 3;
+}
+
+message ConnectResponse {
+    Profile profile = 1;
+}
+
+
+message KeyExchangeRequest {
+    message Initiate {
+        bytes prekey = 1;
+        string device_name = 2;
+    }
+
+    message Confirm {
+        bytes prekey = 1;
+    }
+
+    message Reject {}
+
+    message Await {}
+
+    message Finalize {
+        bytes encrypted_key = 1;
+    }
+
+    message End {}
+
+    bytes id = 1;
+
+    oneof data {
+        Initiate initiate = 2;
+        Confirm confirm = 3;
+        Reject reject = 4;
+        Await await = 5;
+        Finalize finalize = 6;
+        End end = 7;
+    }
+}
+
+message KeyExchangeReply {
+    message Initiate {
+        bytes id = 1;
+    }
+
+    message Confirm {
+        bytes prekey = 1;
+        string device_name = 2;
+    }
+
+    message Reject {}
+
+    message Await {
+        bytes key = 1;
+    }
+
+    message Finalize {}
+
+    message End {
+        bytes channel_token = 1;
+    }
+
+    oneof data {
+        Initiate initiate = 1;
+        Confirm confirm = 2;
+        Reject reject = 3;
+        Await await = 4;
+        Finalize finalize = 5;
+        End end = 6;
+    }
+}
+
+
+message NewConnectionRequest {
+    message SlaveConnection {
+        string device_name = 1;
+    }
+
+    message MasterConnection {
+        bool reset = 1;
+    }
+}
+
+message NewConnectionResponse {
+    bytes token = 1;
+    bytes id = 2;
+}
+
+
+message ChannelSendRequest {
+    bytes token = 1;
+    bytes data = 2;
+}
+
+message ChannelSendResponse {}
+
+
+message LinkChannelRequest {
+    bytes channel_token = 1;
+}
+
+message LinkChannelResponse {}
+
+
+message ListConnectionsRequest {}
+
+message ListConnectionsResponse {
+    message Connection {
+        string device_name = 1;
+        uint64 last_active = 2;
+        string last_ip = 3;
+        bytes id = 4;
+    }
+
+    repeated Connection connections = 1;
+}
+
+
+message RevokeConnectionRequest {
+    bytes connection_id = 1;
+}
+
+message RevokeConnectionResponse {}
+
+
+message QueryUserRequest {
+    oneof query {
+        string username = 1;
+        bytes id = 2;
+    }
+}
+
+message QueryUserResponse {
+    Profile profile = 1;
+    bytes key = 2;
+}
+
+
+message EstablishSessionRequest {
+    bytes id = 1;
+    bytes signature = 2;
+    bytes ephemeral_key = 3;
+}
+
+message EstablishSessionResponse {
+    bytes session_id = 1;
+}
+
+
+message PendingSessionsRequest {
+    bool accepted = 1;
+}
+
+message PendingSessionsResponse {
+    message PendingSession {
+        bytes session_id = 1;
+        bytes user_id = 2;
+        bytes signature = 3;
+        bytes ephemeral_key = 4;
+        uint64 requested_at = 6;
+    }
+
+    repeated PendingSession sessions = 1;
+}
+
+
+message AcceptSessionRequest {
+    bytes session_id = 1;
+    bytes signature = 2;
+    bytes ephemeral_key = 3;
+    bytes encrypted_key = 4;
+}
+
+message AcceptSessionResponse {}
+
+
+message CancelSessionRequest {
+    bytes session_id = 1;
+}
+
+message CancelSessionResponse {}
+
+
+message FinalizeSessionRequest {
+    bytes session_id = 1;
+    bytes encrypted_key = 2;
+}
+
+message FinalizeSessionResponse {}
+
+
+message SendMessageRequest {
+    bytes session_id = 1;
+    bytes message = 2;
+}
+
+message SendMessageResponse {}
+
+
+message QueryMessagesRequest {
+    uint64 limit = 1;
+    uint64 offset = 2;
+
+    oneof query {
+        bytes session_id = 3;
+        uint64 query_since = 4;
+    }
+}
+
+message QueryMessagesResponse {
+    repeated EncapsulatedMessage messages = 1;
+}
+
+
+message ReestablishSessionRequest {
+    bytes session_id = 1;
+    bytes signature = 2;
+    bytes ephemeral_key = 3;
+}
+
+message ReestablishSessionResponse {}
+
+
+message UploadFileRequest {
+    uint64 size = 1;
+}
+
+message UploadFileResponse {
+    bytes file_id = 1;
+}
+
+
+message DownloadFileRequest {
+    bytes file_id = 1;
+}
+
+message DownloadFileResponse {
+    uint64 size = 1;
+}
