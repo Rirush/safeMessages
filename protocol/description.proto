@@ -1,15 +1,54 @@
 syntax = "proto3";
 
-option go_package = ".;types";
+option go_package = ".;pb";
 import "google/protobuf/wrappers.proto";
 
 service Chat {
+    // Unauthenticated calls:
+
     // SetupDevice create an entry on the server and prepares device authentication token
     rpc SetupDevice(DeviceInformation) returns (AuthenticationDetails) {}
+    // VerifyAuthentication returns current device's authentication status, argument is ignored
+    rpc VerifyAuthentication(google.protobuf.BoolValue) returns (AuthenticationStatus) {}
     // CheckUsername returns whether specified username is available for registration
     rpc CheckUsername(google.protobuf.StringValue) returns (google.protobuf.BoolValue) {}
     // Register creates new user entry on the server, binds it to the current device, and returns new user ID
     rpc Register(RegistrationDetails) returns (RegistrationConfirmation) {}
+
+    // Authenticated calls:
+
+    // GetDevice returns public device information
+    rpc GetDevice(google.protobuf.BytesValue) returns (DeviceInformation) {}
+
+    // AddSlaveDevices authenticates device with supplied ID to the current user
+    rpc AddSlaveDevice(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+    // ListSlaveDevices returns all linked devices
+    rpc ListSlaveDevices(google.protobuf.BoolValue) returns (stream DeviceInformation) {}
+    // RemoveSlaveDevice revokes access to the current user from specified device
+    rpc RemoveSlaveDevice(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+
+    // Key exchange procedure:
+    // Device 1 requests key exchange (RequestKeyExchange), transfers received bytes to Device 2, and stats
+    // awaiting for the response (AwaitKeyExchangeRequestConfirmation).
+    // Device 2 receives the ephemeral key (GetKeyExchangeRequest) and confirms the request with encrypted session key
+    // (ConfirmKeyExchangeRequest), or denies it (DenyKeyExchangeRequest).
+    // Device 1 generates a session key and transfers it to Device 2 (FinalizeKeyExchange).
+    // Now Device 1 and Device 2 has each other session key and are ready to securely transfer information via
+    // the channel, which ID was returned to both of them.
+
+    // RequestKeyExchange posts public key and returns exchange ID
+    rpc RequestKeyExchange(KeyExchangeRequest) returns (google.protobuf.BytesValue) {}
+    // GetKeyExchangeRequest returns ephemeral key specified in the exchange
+    rpc GetKeyExchangeRequest(google.protobuf.BytesValue) returns (KeyExchangeRequest) {}
+    // AwaitKeyExchangeRequestConfirmation returns other party's ephemeral key and encrypted session key
+    rpc AwaitKeyExchangeRequestConfirmation(google.protobuf.BytesValue) returns (KeyExchangeRequestConfirmation) {}
+    // ConfirmKeyExchangeRequest returns other party's encrypted session key and channel ID
+    rpc ConfirmKeyExchangeRequest(KeyExchangeRequestConfirmation) returns (KeyExchangeFinalization) {}
+    // DenyKeyExchangeRequest denied specified key exchange.
+    // This method should be used when user decided to cancel the exchange, or when the ephemeral key validation failed
+    rpc DenyKeyExchangeRequest(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+    // FinalizeKeyExchange posts encrypted session key and returns channel ID
+    rpc FinalizeKeyExchange(KeyExchangeFinalization) returns (google.protobuf.BytesValue) {}
 }
 
 message DeviceInformation {
@@ -28,6 +67,12 @@ message DeviceInformation {
     string device_details = 4;
     // name is a string that has human-defined device name
     string name = 5;
+
+    // Ignored when setting up new device:
+    // last_ip contains last IP address that was used to authenticate with this device
+    string last_ip = 6;
+    // last_login contains UTC timestamp of last authentication
+    uint64 last_login = 7;
 }
 
 message AuthenticationDetails {
@@ -37,16 +82,37 @@ message AuthenticationDetails {
     bytes device_id = 2;
 }
 
+message AuthenticationStatus {
+    // authorized is set to true if current device has an associated user
+    bool authorized = 1;
+    // user_id contains associated user ID, if authorized is set to true
+    bytes user_id = 2;
+}
+
 message RegistrationDetails {
     // username is string, that may contain latin alphabet, underscores, and dots.
     // This string is case-insensitive and must be unique across the server
     string username = 1;
-    // Key is the public Ed25519 key, that is used for secure session establishment.
+    // master_key is the public Ed25519 key, that is used for secure session establishment.
     // This field may be replaced in the future by an array of pre-generated ephemeral keys
-    bytes key = 2;
+    bytes master_key = 2;
 }
 
 message RegistrationConfirmation {
     // user_id is UUID that is used to target current user in different operations, e.g. sending messages
     bytes user_id = 1;
+}
+
+message KeyExchangeRequest {
+    bytes ephemeral_key = 1;
+}
+
+message KeyExchangeRequestConfirmation {
+    bytes ephemeral_key = 1;
+    bytes encrypted_key = 2;
+}
+
+message KeyExchangeFinalization {
+    bytes encrypted_key = 3;
+    bytes channel_id = 4;
 }
