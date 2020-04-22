@@ -9,7 +9,7 @@ service Chat {
     // SetupDevice create an entry on the server and prepares device authentication token
     rpc SetupDevice(DeviceInformation) returns (AuthenticationDetails) {}
     // VerifyAuthentication returns current device's authentication status, argument is ignored
-    rpc VerifyAuthentication(google.protobuf.BoolValue) returns (AuthenticationStatus) {}
+    rpc VerifyAuthentication(Null) returns (AuthenticationStatus) {}
     // CheckUsername returns whether specified username is available for registration
     rpc CheckUsername(google.protobuf.StringValue) returns (google.protobuf.BoolValue) {}
     // Register creates new user entry on the server, binds it to the current device, and returns new user ID
@@ -17,15 +17,28 @@ service Chat {
 
     // Authenticated calls:
 
+    // InvalidateDevice removes all information associated with the current device
+    rpc InvalidateDevice(Null) returns (Null) {}
     // GetDevice returns public device information
     rpc GetDevice(google.protobuf.BytesValue) returns (DeviceInformation) {}
 
     // AddSlaveDevices authenticates device with supplied ID to the current user
-    rpc AddSlaveDevice(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+    rpc AddSlaveDevice(google.protobuf.BytesValue) returns (Null) {}
     // ListSlaveDevices returns all linked devices
     rpc ListSlaveDevices(google.protobuf.BoolValue) returns (stream DeviceInformation) {}
     // RemoveSlaveDevice revokes access to the current user from specified device
-    rpc RemoveSlaveDevice(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+    rpc RemoveSlaveDevice(google.protobuf.BytesValue) returns (Null) {}
+    // RecoverOwnership revokes access to all devices, resets all encrypted chats and sets new device as owner
+    rpc RecoverOwnership(OwnershipRecoveryRequest) returns (Null) {}
+    // ResetMasterKey resets all encrypted chats and changes the master key. After this request, if chats needed be preserved,
+    // you should perform new key exchange for every encrypted chat
+    rpc ResetMasterKey(KeyResetRequest) returns (Null) {}
+    rpc PostEphemeralKey(PostEphemeralKeyRequest) returns (PostEphemeralKeyResponse) {}
+    rpc RevokeEphemeralKey(google.protobuf.UInt64Value) returns (Null) {}
+    rpc ListEphemeralKeys(Null) returns (stream EphemeralKey) {}
+    rpc RequestUserRemoval(Null) returns (google.protobuf.BytesValue) {}
+    rpc ConfirmUserRemoval(UserRemovalConfirmation) returns (Null) {}
+    rpc SetUserInformation(UserUpdate) returns (Null) {}
 
     // Key exchange procedure:
     // Device 1 requests key exchange (RequestKeyExchange), transfers received bytes to Device 2, and stats
@@ -43,13 +56,60 @@ service Chat {
     // AwaitKeyExchangeRequestConfirmation returns other party's ephemeral key and encrypted session key
     rpc AwaitKeyExchangeRequestConfirmation(google.protobuf.BytesValue) returns (KeyExchangeRequestConfirmation) {}
     // ConfirmKeyExchangeRequest returns other party's encrypted session key and channel ID
-    rpc ConfirmKeyExchangeRequest(KeyExchangeRequestConfirmation) returns (KeyExchangeFinalization) {}
+    rpc ConfirmKeyExchangeRequest(ConfirmKeyExchangeRequest) returns (KeyExchangeResult) {}
     // DenyKeyExchangeRequest denied specified key exchange.
     // This method should be used when user decided to cancel the exchange, or when the ephemeral key validation failed
-    rpc DenyKeyExchangeRequest(google.protobuf.BytesValue) returns (google.protobuf.BoolValue) {}
+    rpc DenyKeyExchangeRequest(google.protobuf.BytesValue) returns (Null) {}
     // FinalizeKeyExchange posts encrypted session key and returns channel ID
     rpc FinalizeKeyExchange(KeyExchangeFinalization) returns (google.protobuf.BytesValue) {}
+
+    // ReadDataFromChannel starts listening for new data chunks, this request is intended to be kept open all the time
+    // on slave devices.
+    rpc ReadChunksFromChannel(ChannelReadRequest) returns (stream ChannelChunk){}
+    // AckChannelChunk acknowledges that the device has successfully processed specific chunk and that now the server
+    // can delete it.
+    rpc AckChannelChunk(ChannelChunkAck) returns (Null) {}
+    // InvalidateChannelChunk marks chunk as invalid, removes it from the server and notifies the sender that recipient
+    // failed to decrypt the chunk.
+    rpc InvalidateChannelChunk(ChannelChunkInvalidation) returns (Null) {}
+    // SendChunkToChannel sends encrypted chunk to specified channel
+    rpc SendChunkToChannel(NewChannelChunk) returns (Null) {}
+
+    rpc FindUsers(google.protobuf.StringValue) returns (stream User) {}
+    rpc GetUser(google.protobuf.BytesValue) returns (User) {}
+    rpc GetEphemeralKey(google.protobuf.BytesValue) returns (EphemeralKey) {}
+
+    rpc CreateChat(google.protobuf.BytesValue) returns (google.protobuf.BytesValue) {}
+    rpc AcceptChat(google.protobuf.BytesValue) returns (Null) {}
+    rpc DeclineChat(google.protobuf.BytesValue) returns (Null) {}
+
+    rpc CreateEncryptedChat(EncryptedChatRequest) returns (google.protobuf.BytesValue) {}
+    rpc PostSessionKey(PostSessionKey) returns (Null) {}
+
+    rpc CreateGroupChat(NewGroupChat) returns (google.protobuf.BytesValue) {}
+    rpc ListChats(Null) returns (stream Chat) {}
+
+    rpc BlockUser(google.protobuf.BytesValue) returns (Null) {}
+    rpc ListBlockedUsers(Null) returns (stream CachedUser) {}
+    rpc UnblockUser(google.protobuf.BytesValue) returns (Null) {}
+
+    rpc UploadFileRequest(FileUploadRequest) returns (google.protobuf.BytesValue) {}
+    rpc UploadBlocks(stream Block) returns (Null) {}
+    rpc GetLastBlock(google.protobuf.BytesValue) returns (google.protobuf.UInt64Value) {}
+    rpc GetFileMetadata(google.protobuf.BytesValue) returns (FileMetadata) {}
+    rpc DownloadFile(FileDownloadRequest) returns (stream Block) {}
+    rpc RevokeFile(google.protobuf.BytesValue) returns (Null) {}
+
+    rpc SendUnencryptedMessage(PendingMessage) returns (PendingMessageConfirmation) {}
+    rpc SendEncryptedMessage(PendingEncryptedMessage) returns (PendingMessageConfirmation) {}
+    rpc EditMessage(EditMessageRequest) returns (Null) {}
+    rpc DeleteMessage(google.protobuf.UInt64Value) returns (Null) {}
+
+    rpc Listen(Null) returns (stream Event) {}
 }
+
+// Null is an empty message for requests that do not require any arguments or do not return any data
+message Null {}
 
 message DeviceInformation {
     enum Platform {
@@ -101,18 +161,250 @@ message RegistrationDetails {
 message RegistrationConfirmation {
     // user_id is UUID that is used to target current user in different operations, e.g. sending messages
     bytes user_id = 1;
+    // recovery_token is used for backup account recovery
+    bytes recovery_token = 2;
 }
 
 message KeyExchangeRequest {
+    // ephemeral_key is a temporary key that's used to exchange session keys
     bytes ephemeral_key = 1;
+}
+
+message ConfirmKeyExchangeRequest {
+    // ephemeral_key is a temporary key that's used to exchange session keys
+    bytes ephemeral_key = 1;
+    // encrypted_key is an encrypted persistent session key
+    bytes encrypted_key = 2;
+    // exchange_id is the ID of specific exchange
+    bytes exchange_id = 3;
 }
 
 message KeyExchangeRequestConfirmation {
+    // ephemeral_key is a temporary key that's used to exchange session keys
     bytes ephemeral_key = 1;
+    // encrypted_key is an encrypted persistent session key
     bytes encrypted_key = 2;
 }
 
+message OwnershipRecoveryRequest {
+    bytes user_id = 1;
+    bytes recovery_token = 2;
+    bytes signature = 3;
+}
+
+message KeyResetRequest {
+    bytes master_key = 1;
+    bytes signature = 2;
+}
+
+message PostEphemeralKeyRequest {
+    bytes key = 1;
+    bytes signature = 2;
+}
+
+message PostEphemeralKeyResponse {
+    uint64 id = 1;
+}
+
+message EphemeralKey {
+    uint64 id = 1;
+    bytes key = 2;
+    bytes signature = 3;
+}
+
+message UserRemovalConfirmation {
+    bytes request = 1;
+    bytes signature = 2;
+}
+
 message KeyExchangeFinalization {
-    bytes encrypted_key = 3;
-    bytes channel_id = 4;
+    // encrypted_key is an encrypted persistent session key
+    bytes encrypted_key = 1;
+    // exchange_id is the ID of specific exchange
+    bytes exchange_id = 2;
+}
+
+message KeyExchangeResult {
+    // encrypted_key is an encrypted persistent session key
+    bytes encrypted_key = 1;
+    // channel_id is an UUID that targets newly created data exchange channel
+    bytes channel_id = 2;
+}
+
+message ChannelReadRequest {
+    bytes channel_id = 1;
+    uint64 last_received_chunk = 2;
+}
+
+message ChannelChunk {
+    uint64 id = 1;
+    // FIXME: is external chunk metadata needed?
+    bytes data = 2;
+}
+
+message ChannelChunkAck {
+    bytes channel_id = 1;
+    uint64 chunk_id = 2;
+}
+
+message ChannelChunkInvalidation {
+    bytes channel_id = 1;
+    uint64 chunk_id = 2;
+}
+
+message NewChannelChunk {
+    bytes channel_id = 1;
+    bytes data = 2;
+}
+
+message User {
+    bytes id = 1;
+    string name = 2;
+    string username = 3;
+    string bio = 4;
+    bytes master_key = 5;
+    bytes cache_id = 6;
+    bytes profile_picture = 7;
+}
+
+message UserUpdate {
+    string name = 1;
+    string bio = 2;
+    bytes profile_picture = 3;
+}
+
+message NewGroupChat {
+    repeated bytes members = 1;
+    string title = 2;
+    string description = 3;
+}
+
+message EncryptedChatRequest {
+    bytes user_id = 1;
+    uint64 ephemeral_key = 2;
+    bytes encrypted_ephemeral_key = 3;
+    bytes signature = 4;
+    bytes encrypted_message = 5;
+}
+
+message PostSessionKey {
+    bytes chat_id = 1;
+    bytes encrypted_key = 2;
+}
+
+message CachedUser {
+    bytes address = 1;
+    bytes cache_id = 2;
+}
+
+message Chat {
+    message Private {
+        bytes address = 1;
+        CachedUser user = 2;
+    }
+
+    message Group {
+        bytes address = 1;
+        string title = 2;
+        string description = 3;
+        repeated CachedUser members = 4;
+    }
+
+    oneof type {
+        Private private_chat = 1;
+        Group group_chat = 2;
+    }
+}
+
+message FileUploadRequest {
+    string filename = 1;
+    string type = 2;
+    uint64 size = 3;
+}
+
+message Block {
+    uint64 seq = 1;
+    bytes data = 2;
+    bytes token = 3;
+}
+
+message FileDownloadRequest {
+    bytes token = 1;
+    uint64 last_seq = 2;
+}
+
+message FileMetadata {
+    string name = 1;
+    string type = 2;
+    uint64 size = 3;
+}
+
+message PendingMessage {
+    message Text {
+        string text = 1;
+    }
+
+    message Media {
+        message Entry {
+            bytes file = 1;
+            string caption = 2;
+        }
+
+        repeated Entry entries = 1;
+        string caption = 2;
+    }
+
+    message Document {
+        bytes file = 1;
+        string caption = 2;
+    }
+
+    oneof type {
+        Text text_message = 1;
+        Media media_message = 2;
+        Document document_message = 3;
+    }
+
+    bytes chat_id = 4;
+}
+
+message PendingMessageConfirmation {
+    uint64 message_id = 1;
+}
+
+message PendingEncryptedMessage {
+    bytes chat_id = 1;
+    // Contents has encrypted PendingMessage with omitted chat_id
+    bytes contents = 2;
+}
+
+message EditMessageRequest {
+    message UpdateText {
+        string text = 1;
+    }
+
+    message UpdateMedia {
+        message Caption {
+            uint64 file_number = 1;
+            string caption = 2;
+        }
+        string caption = 1;
+        repeated Caption media_captions = 2;
+    }
+
+    message UpdateDocument {
+        string caption = 1;
+    }
+
+    uint64 message_id = 1;
+
+    oneof type {
+        UpdateText text = 2;
+        UpdateMedia media = 3;
+        UpdateDocument document = 4;
+    }
+}
+
+message Event {
+
 }
